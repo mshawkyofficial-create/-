@@ -1,0 +1,6 @@
+{
+  "name": "Shawky App",
+  "description": "Premium fitness, nutrition, coaching, and interactive recipe application with bilingual Arabic/English support.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
