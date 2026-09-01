@@ -36,6 +36,54 @@ async function startServer() {
     res.json({ status: 'ok', time: new Date().toISOString() });
   });
 
+  // Parse a trainee's food sentence. The AI identifies foods and quantities only;
+  // the client calculates macros from the coach-controlled ingredient database.
+  app.post('/api/ai/parse-food-log', async (req, res) => {
+    try {
+      const text = typeof req.body?.text === 'string' ? req.body.text.trim().slice(0, 500) : '';
+      const availableIngredients = Array.isArray(req.body?.availableIngredients)
+        ? req.body.availableIngredients.slice(0, 100)
+        : [];
+      if (!text || !availableIngredients.length) {
+        return res.status(400).json({ success: false, message: 'Text and ingredient database are required.' });
+      }
+
+      const ai = getGeminiClient();
+      if (!ai) return res.json({ success: false, message: 'AI client not initialized' });
+
+      const allowedIds = new Set(availableIngredients.map((item: any) => item.id));
+      const prompt = `Extract foods and gram weights from this trainee entry: "${text}".
+Match ONLY to this ingredient list: ${JSON.stringify(availableIngredients)}.
+Do not calculate calories or macros. Do not guess a quantity when it is absent.
+If cooked/raw state changes the food and is unclear, set amountGrams to null.
+Return JSON only: {"items":[{"ingredientId":"allowed_id","amountGrams":number|null,"confidence":number,"needsPreparationClarification":boolean}]}`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-3.7-flash',
+        contents: prompt,
+        config: { responseMimeType: 'application/json' },
+      });
+      const parsed = JSON.parse(response.text || '{}');
+      const items = Array.isArray(parsed.items)
+        ? parsed.items
+            .filter((item: any) => allowedIds.has(item.ingredientId))
+            .slice(0, 10)
+            .map((item: any) => ({
+              ingredientId: item.ingredientId,
+              amountGrams: Number.isFinite(Number(item.amountGrams)) && Number(item.amountGrams) > 0
+                ? Number(item.amountGrams)
+                : null,
+              confidence: Math.max(0, Math.min(1, Number(item.confidence) || 0.7)),
+              needsPreparationClarification: Boolean(item.needsPreparationClarification),
+            }))
+        : [];
+      return res.json({ success: true, data: { items } });
+    } catch (error: any) {
+      console.error('Error parsing food log:', error);
+      return res.status(500).json({ success: false, error: error.message || 'Failed to parse food log' });
+    }
+  });
+
   // Generate complete Meal Plan (N meals, exactly 3 options each)
   app.post('/api/ai/generate-meal-plan', async (req, res) => {
     try {
@@ -76,7 +124,7 @@ ${JSON.stringify(
     name: r.name,
     mealType: r.mealType,
     videoUrl: r.videoUrl,
-    calories: r.preparationTimeMin,
+    calories: r.calories,
   }))
 )}
 

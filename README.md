@@ -18,3 +18,12 @@ View your app in AI Studio: https://ai.studio/apps/0922aef6-1400-4b1f-9338-f8c17
 2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
 3. Run the app:
    `npm run dev`
+
+## Nutrition tracking
+
+The nutrition module includes a client-and-date-scoped food log, coach targets,
+remaining calories and macros, manual entries, plan-option logging, and a reviewed
+smart-entry flow. Smart entry extracts foods and quantities, while macro totals are
+calculated from the app's controlled ingredient database before the trainee confirms
+the entry. Entries with missing gram weights or unclear cooked/raw state are blocked
+until clarified.
